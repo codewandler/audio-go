@@ -8,9 +8,9 @@ require (
 )
 
 require (
-	github.com/ebitengine/oto/v3 v3.3.2 // indirect
-	github.com/ebitengine/purego v0.8.0 // indirect
-	github.com/gordonklaus/portaudio v0.0.0-20230709114228-aafa478834f5 // indirect
+	github.com/ebitengine/oto/v3 v3.3.3 // indirect
+	github.com/ebitengine/purego v0.8.4 // indirect
+	github.com/gordonklaus/portaudio v0.0.0-20250206071425-98a94950218b // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 )
