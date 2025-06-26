@@ -12,29 +12,45 @@ import (
 )
 
 const (
-	bytesPerSample = 2                      // 16-bit mono PCM
-	playLatency    = 200 * time.Millisecond // speaker buffer = 200 ms
-	captureFrames  = 1024                   // mic pull size
+	defaultPlayLatency = 200 * time.Millisecond // defaultPlayLatency speaker buffer = 200 ms
+	defaultSampleRate  = 48_000                 // defaultSampleRate is the default sample rate
+	bytesPerSample     = 2                      // 16-bit mono PCM
+	captureFrames      = 1024                   // mic pull size
 )
+
+type Config struct {
+	PlaySampleRate    int
+	PlayLatency       time.Duration
+	CaptureSampleRate int
+}
 
 // NewAudioIO returns an io.ReadWriter that speaks 16-bit MONO PCM.
 // ctx / framesPerBuffer are ignored for API compatibility.
 func NewAudioIO(
-	playSampleRate int,
-	captureSampleRate int,
+	config Config,
 ) (*AudioIO, error) {
+	if config.PlayLatency == 0 {
+		config.PlayLatency = defaultPlayLatency
+	}
+	if config.PlaySampleRate == 0 {
+		config.PlaySampleRate = defaultSampleRate
+	}
+	if config.CaptureSampleRate == 0 {
+		config.CaptureSampleRate = defaultSampleRate
+	}
+
 	var (
-		playSR    = beep.SampleRate(playSampleRate)
-		captureSR = beep.SampleRate(captureSampleRate)
+		playSR    = beep.SampleRate(config.PlaySampleRate)
+		captureSR = beep.SampleRate(config.CaptureSampleRate)
 	)
 
 	// --------------- playback side ------------------------------------------
-	if err := speaker.Init(playSR, playSR.N(playLatency)); err != nil {
+	if err := speaker.Init(playSR, playSR.N(config.PlayLatency)); err != nil {
 		return nil, err
 	}
 
 	// channel feeding the one global streamer
-	playCh := make(chan [2]float64, playSampleRate)
+	playCh := make(chan [2]float64, config.PlaySampleRate)
 	playStreamer := newChanStreamer(playCh)
 	speaker.Play(playStreamer)
 
