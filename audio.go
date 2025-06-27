@@ -12,16 +12,18 @@ import (
 )
 
 const (
-	defaultPlayLatency = 200 * time.Millisecond // defaultPlayLatency speaker buffer = 200 ms
-	defaultSampleRate  = 48_000                 // defaultSampleRate is the default sample rate
-	bytesPerSample     = 2                      // 16-bit mono PCM
-	captureFrames      = 1024                   // mic pull size
+	defaultPlayLatency    = 200 * time.Millisecond // defaultPlayLatency speaker buffer = 200 ms
+	defaultCaptureLatency = 200 * time.Millisecond // defaultPlayLatency capture buffer = 200 ms
+	defaultSampleRate     = 48_000                 // defaultSampleRate is the default sample rate
+	bytesPerSample        = 2                      // 16-bit mono PCM
+	captureFrames         = 1024                   // mic pull size
 )
 
 type Config struct {
 	PlaySampleRate    int
 	PlayLatency       time.Duration
 	CaptureSampleRate int
+	CaptureLatency    time.Duration
 }
 
 // NewAudioIO returns an io.ReadWriter that speaks 16-bit MONO PCM.
@@ -37,6 +39,9 @@ func NewAudioIO(
 	}
 	if config.CaptureSampleRate == 0 {
 		config.CaptureSampleRate = defaultSampleRate
+	}
+	if config.CaptureLatency == 0 {
+		config.CaptureLatency = defaultCaptureLatency
 	}
 
 	var (
@@ -69,6 +74,7 @@ func NewAudioIO(
 		playStreamer: playStreamer,
 		readBuf:      make([]byte, 0, 160),
 	}
+	a.readCond = sync.NewCond(&a.readMu)
 
 	go a.captureLoop()
 	return a, nil
@@ -82,22 +88,22 @@ type AudioIO struct {
 	playCh       chan [2]float64
 	readMu       sync.Mutex
 	readBuf      []byte
+	readCond     *sync.Cond // 🚨 new condition variable
 }
 
 // --------------------------- io.Reader --------------------------------------
 
 func (a *AudioIO) Read(p []byte) (int, error) {
-	for {
-		a.readMu.Lock()
-		if len(a.readBuf) > 0 {
-			n := copy(p, a.readBuf)
-			a.readBuf = a.readBuf[n:]
-			a.readMu.Unlock()
-			return n, nil
-		}
-		a.readMu.Unlock()
-		time.Sleep(3 * time.Millisecond)
+	a.readMu.Lock()
+	defer a.readMu.Unlock()
+
+	for len(a.readBuf) == 0 {
+		a.readCond.Wait() // 🚨 wait for signal
 	}
+
+	n := copy(p, a.readBuf)
+	a.readBuf = a.readBuf[n:]
+	return n, nil
 }
 
 // --------------------------- io.Writer --------------------------------------
@@ -130,6 +136,7 @@ func (a *AudioIO) captureLoop() {
 
 		a.readMu.Lock()
 		a.readBuf = append(a.readBuf, mono...)
+		a.readCond.Signal()
 		a.readMu.Unlock()
 	}
 }
