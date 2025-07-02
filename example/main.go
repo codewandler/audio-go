@@ -11,7 +11,10 @@ func main() {
 	portaudio.Initialize()
 	defer portaudio.Terminate()
 
-	a, err := audio.NewAudioIO(audio.Config{PlayLatency: 100 * time.Millisecond})
+	a, err := audio.NewAudioIO(audio.Config{
+		PlayLatency:    20 * time.Millisecond,
+		CaptureLatency: 20 * time.Millisecond,
+	})
 	if err != nil {
 		panic(err)
 	}

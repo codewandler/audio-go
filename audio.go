@@ -55,7 +55,7 @@ func NewAudioIO(
 	}
 
 	// channel feeding the one global streamer
-	playCh := make(chan [2]float64, config.PlaySampleRate*5) // buffer 5s of audio
+	playCh := make(chan [2]float64, playSR.N(config.PlayLatency))
 	playStreamer := newChanStreamer(playCh)
 	speaker.Play(playStreamer)
 
